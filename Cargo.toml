@@ -1,0 +1,9 @@
+[package]
+name    = "laughing_man"
+version = "0.1.0"
+
+authors = ["meh. <meh@schizofreni.co>"]
+license = "WTFPL"
+
+[dependencies.api]
+path = "../api"
