@@ -11,16 +11,20 @@ pub struct Saver {
 	state:  api::State,
 	gl:     Option<Graphics>,
 
-	blur:  f32,
-	image: Option<Image>,
+	dialog: bool,
+	blur:   f32,
+	man:    Option<Man>,
 }
 
 unsafe impl Send for Saver { }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Image {
+pub struct Man {
 	x: u32,
 	y: u32,
+
+	alpha: f32,
+	step:  f32,
 
 	rotation: f32,
 	scale:    f32,
@@ -49,8 +53,9 @@ mod graphics {
 	}
 
 	pub struct Man {
-		pub fixed:   Image,
-		pub dynamic: Image,
+		pub fixed:    Image,
+		pub dynamic:  Image,
+		pub complete: Image,
 	}
 
 	pub struct Image {
@@ -68,8 +73,9 @@ impl Saver {
 			state:  Default::default(),
 			gl:     None,
 
-			blur:  0.0,
-			image: None,
+			dialog: false,
+			blur:   0.0,
+			man:    None,
 		}
 	}
 }
@@ -81,6 +87,7 @@ impl api::Saver for Saver {
 		let scene = Scene::new(width, height);
 
 		let screen = {
+			// The transient textures are needed to do alternated blurring.
 			let transient = (gl::texture::Texture2d::empty(&context, width, height).unwrap(),
 			                 gl::texture::Texture2d::empty(&context, width, height).unwrap());
 
@@ -117,9 +124,9 @@ impl api::Saver for Saver {
 			}
 		};
 
-		let man = {
-			let fixed = {
-				let image   = api::image::load_from_memory(include_bytes!("../assets/fixed.png")).unwrap();
+		macro_rules! load {
+			($path:expr) => ({
+				let image   = api::image::load_from_memory(include_bytes!($path)).unwrap();
 				let size    = image.dimensions();
 				let image   = gl::texture::RawImage2d::from_raw_rgba_reversed(image.to_rgba().into_raw(), size);
 				let texture = gl::texture::Texture2d::with_mipmaps(&context, image, gl::texture::MipmapsOption::NoMipmap).unwrap();
@@ -147,44 +154,36 @@ impl api::Saver for Saver {
 					index:   index,
 					program: program,
 				}
-			};
 
-			let dynamic = {
-				let image   = api::image::load_from_memory(include_bytes!("../assets/dynamic.png")).unwrap();
-				let size    = image.dimensions();
-				let image   = gl::texture::RawImage2d::from_raw_rgba_reversed(image.to_rgba().into_raw(), size);
-				let texture = gl::texture::Texture2d::with_mipmaps(&context, image, gl::texture::MipmapsOption::NoMipmap).unwrap();
+			});
+		}
 
-				let vertex = gl::VertexBuffer::new(&context, &[
-					Vertex { position: [-1.0, -1.0], texture: [0.0, 0.0] },
-					Vertex { position: [-1.0,  1.0], texture: [0.0, 1.0] },
-					Vertex { position: [ 1.0,  1.0], texture: [1.0, 1.0] },
-					Vertex { position: [ 1.0, -1.0], texture: [1.0, 0.0] },
-				]).unwrap();
-
-				let index = gl::IndexBuffer::new(&context, gl::index::PrimitiveType::TriangleStrip,
-					&[1 as u16, 2, 0, 3]).unwrap();
-
-				let program = program!(&context,
-					110 => {
-						vertex:   include_str!("../assets/shaders/image/vertex.glsl"),
-						fragment: include_str!("../assets/shaders/image/fragment.glsl"),
-					},
-				).unwrap();
-
-				graphics::Image {
-					texture: texture,
-					vertex:  vertex,
-					index:   index,
-					program: program,
-				}
-			};
-
-			graphics::Man {
-				fixed:   fixed,
-				dynamic: dynamic,
-			}
+		let man = graphics::Man {
+			fixed:    load!("../assets/fixed.png"),
+			dynamic:  load!("../assets/dynamic.png"),
+			complete: load!("../assets/complete.png"),
 		};
+
+		// Initiate `Man` and calculate step from blur step.
+		self.man = Some({
+			let step = if let Some(blur) = self.config.blur {
+				blur.step / blur.max
+			}
+			else {
+				0.001
+			};
+
+			Man {
+				x: width / 2,
+				y: height / 2,
+
+				alpha: 0.0,
+				step:  step,
+
+				scale:    self.config.man.scale,
+				rotation: 0.0,
+			}
+		});
 
 		self.gl = Some(Graphics {
 			context: context,
@@ -209,44 +208,33 @@ impl api::Saver for Saver {
 		self.state
 	}
 
+	fn dialog(&mut self, active: bool) {
+		self.dialog = active;
+	}
+
 	fn update(&mut self) {
-		let gl = self.gl.as_ref().unwrap();
+		let man = self.man.as_mut().unwrap();
 
 		match self.state {
 			api::State::Begin => {
 				if let Some(blur) = self.config.blur {
 					if self.blur < blur.max {
 						self.blur += blur.step;
+						man.alpha += man.step;
 					}
 					else {
 						self.state = api::State::Running;
+						man.alpha = 1.0;
 					}
 				}
 			}
 
 			api::State::Running => {
-				if self.image.is_none() {
-					self.image = Some(Image {
-						x: gl.width / 2,
-						y: gl.height / 2,
+				if let Some(step) = self.config.man.rotate {
+					man.rotation += step;
 
-						scale:    0.0,
-						rotation: 0.0,
-					});
-				}
-				else {
-					let image = self.image.as_mut().unwrap();
-
-					if image.scale < self.config.image.scale.max {
-						image.scale += self.config.image.scale.step;
-					}
-
-					if let Some(step) = self.config.image.rotate {
-						image.rotation += step;
-
-						if image.rotation > 360.0 {
-							image.rotation = image.rotation - 360.0;
-						}
+					if man.rotation > 360.0 {
+						man.rotation = man.rotation - 360.0;
 					}
 				}
 			}
@@ -255,6 +243,7 @@ impl api::Saver for Saver {
 				if let Some(blur) = self.config.blur {
 					if self.blur > 0.0 {
 						self.blur -= blur.step;
+						man.alpha -= man.step;
 					}
 					else {
 						self.state = api::State::None;
@@ -267,7 +256,8 @@ impl api::Saver for Saver {
 	}
 
 	fn render(&self, target: &mut gl::Frame, screen: &gl::texture::Texture2d) {
-		let gl = self.gl.as_ref().unwrap();
+		let gl  = self.gl.as_ref().unwrap();
+		let man = self.man.as_ref().unwrap();
 
 		// Blur the screen.
 		if let Some(blur) = self.config.blur {
@@ -323,46 +313,79 @@ impl api::Saver for Saver {
 				target.draw(&gl.screen.vertex, &gl.screen.index, &gl.screen.plain, &uniforms, &Default::default()).unwrap();
 			}
 		}
-
-		if let Some(image) = self.image {
+		
+		// If the dialog is not open.
+		if !self.dialog {
 			let mvp = gl.scene.to_matrix()
-				* gl.scene.position(image.x, image.y)
-				* gl.scene.scale(image.scale);
+				* gl.scene.position(man.x, man.y)
+				* gl.scene.scale(man.scale);
 
-			// Draw dynamic image.
-			{
-				let mvp = mvp * gl.scene.rotate(image.rotation);
+			// If we're in rotation mode, compose the two images.
+			if man.alpha == 1.0 {
+				// Draw dynamic image.
+				{
+					let mvp = mvp * gl.scene.rotate(man.rotation);
 
-				let uniforms = uniform! {
-					mvp:     *mvp.as_ref(),
-					texture: gl.man.dynamic.texture.sampled()
-						.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
-						.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
-				};
+					let uniforms = uniform! {
+						mvp:     *mvp.as_ref(),
+						alpha:   man.alpha,
+						texture: gl.man.dynamic.texture.sampled()
+							.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
+							.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
+					};
 
-				target.draw(&gl.man.dynamic.vertex, &gl.man.dynamic.index, &gl.man.dynamic.program, &uniforms, &gl::DrawParameters {
-					blend: gl::Blend {
-						color: gl::BlendingFunction::Addition {
-							source:      gl::LinearBlendingFactor::SourceAlpha,
-							destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
-						},
+					target.draw(&gl.man.dynamic.vertex, &gl.man.dynamic.index, &gl.man.dynamic.program, &uniforms, &gl::DrawParameters {
+						blend: gl::Blend {
+							color: gl::BlendingFunction::Addition {
+								source:      gl::LinearBlendingFactor::SourceAlpha,
+								destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
+							},
 
-						alpha: gl::BlendingFunction::Addition {
-							source:      gl::LinearBlendingFactor::SourceAlpha,
-							destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
+							alpha: gl::BlendingFunction::Addition {
+								source:      gl::LinearBlendingFactor::SourceAlpha,
+								destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
+							},
+
+							.. Default::default()
 						},
 
 						.. Default::default()
-					},
+					}).unwrap();
+				}
 
-					.. Default::default()
-				}).unwrap();
+				{
+					let uniforms = uniform! {
+						mvp:     *mvp.as_ref(),
+						alpha:   man.alpha,
+						texture: gl.man.fixed.texture.sampled()
+							.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
+							.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
+					};
+
+					target.draw(&gl.man.fixed.vertex, &gl.man.fixed.index, &gl.man.fixed.program, &uniforms, &gl::DrawParameters {
+						blend: gl::Blend {
+							color: gl::BlendingFunction::Addition {
+								source:      gl::LinearBlendingFactor::SourceAlpha,
+								destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
+							},
+
+							alpha: gl::BlendingFunction::Addition {
+								source:      gl::LinearBlendingFactor::SourceAlpha,
+								destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
+							},
+
+							.. Default::default()
+						},
+
+						.. Default::default()
+					}).unwrap();
+				}
 			}
-
-			{
+			else {
 				let uniforms = uniform! {
 					mvp:     *mvp.as_ref(),
-					texture: gl.man.fixed.texture.sampled()
+					alpha:   man.alpha,
+					texture: gl.man.complete.texture.sampled()
 						.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
 						.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
 				};

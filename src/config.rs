@@ -1,16 +1,16 @@
-use api::config;
+	use api::config;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Config {
-	pub blur:  Option<Blur>,
-	pub image: Image,
+	pub blur: Option<Blur>,
+	pub man:  Man,
 }
 
 impl Default for Config {
 	fn default() -> Config {
 		Config {
-			blur:  Some(Default::default()),
-			image: Default::default(),
+			blur: Some(Default::default()),
+			man:  Default::default(),
 		}
 	}
 }
@@ -33,31 +33,16 @@ impl Default for Blur {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub struct Image {
-	pub rotate:  Option<f32>,
-	pub scale:   Scale,
+pub struct Man {
+	pub rotate: Option<f32>,
+	pub scale:  f32,
 }
 
-impl Default for Image {
-	fn default() -> Image {
-		Image {
-			rotate:  Some(0.000005),
-			scale:   Default::default(),
-		}
-	}
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct Scale {
-	pub max:  f32,
-	pub step: f32,
-}
-
-impl Default for Scale {
-	fn default() -> Scale {
-		Scale {
-			max:  400.0,
-			step: 0.001,
+impl Default for Man {
+	fn default() -> Man {
+		Man {
+			rotate: Some(0.000005),
+			scale:  400.0,
 		}
 	}
 }
@@ -92,32 +77,26 @@ impl Config {
 			_ => ()
 		}
 
-		if let Some(table) = table.get("image").and_then(|v| v.as_table()) {
-			let mut image = Image::default();
+		if let Some(table) = table.get("man").and_then(|v| v.as_table()) {
+			let mut man = Man::default();
 
-			if let Some(table) = table.get("scale").and_then(|v| v.as_table()) {
-				if let Some(value) = table.get("max").and_then(|v| v.as_float()) {
-					image.scale.max = value as f32;
-				}
-
-				if let Some(value) = table.get("step").and_then(|v| v.as_float()) {
-					image.scale.step = value as f32;
-				}
+			if let Some(value) = table.get("scale").and_then(|v| v.as_float()) {
+				man.scale = value as f32;
 			}
 
 			match table.get("rotate") {
 				Some(&config::Value::Boolean(false)) => {
-					image.rotate = None
+					man.rotate = None
 				}
 
 				Some(&config::Value::Float(value)) => {
-					image.rotate = Some(value as f32);
+					man.rotate = Some(value as f32);
 				}
 
 				_ => ()
 			}
 
-			config.image = image;
+			config.man = man;
 		}
 
 		config
