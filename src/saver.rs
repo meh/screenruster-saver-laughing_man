@@ -23,7 +23,7 @@ pub struct Image {
 	y: u32,
 
 	rotation: f32,
-	depth:    f32,
+	scale:    f32,
 }
 
 pub struct Graphics {
@@ -230,15 +230,15 @@ impl api::Saver for Saver {
 						x: gl.width / 2,
 						y: gl.height / 2,
 
-						depth:    0.0,
+						scale:    0.0,
 						rotation: 0.0,
 					});
 				}
 				else {
 					let image = self.image.as_mut().unwrap();
 
-					if image.depth < self.config.image.depth {
-						image.depth += 0.001;
+					if image.scale < self.config.image.scale.max {
+						image.scale += self.config.image.scale.step;
 					}
 
 					if let Some(step) = self.config.image.rotate {
@@ -327,7 +327,7 @@ impl api::Saver for Saver {
 		if let Some(image) = self.image {
 			let mvp = gl.scene.to_matrix()
 				* gl.scene.position(image.x, image.y)
-				* gl.scene.depth(image.depth);
+				* gl.scene.scale(image.scale);
 
 			// Draw dynamic image.
 			{

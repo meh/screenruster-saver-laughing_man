@@ -54,12 +54,10 @@ impl Scene {
 	}
 
 	#[inline(always)]
-	pub fn depth(&self, z: f32) -> na::Matrix4<f32> {
-		let factor = z;
-
-		na::Matrix4::new(factor, 0.0,    0.0,    0.0,
-		                 0.0,    factor, 0.0,    0.0,
-		                 0.0,    0.0,    factor, 0.0,
-		                 0.0,    0.0,    0.0,    1.0)
+	pub fn scale(&self, size: f32) -> na::Matrix4<f32> {
+		na::Matrix4::new(size, 0.0,  0.0,    0.0,
+		                 0.0,  size, 0.0,    0.0,
+		                 0.0,  0.0,  size, 0.0,
+		                 0.0,  0.0,  0.0,    1.0)
 	}
 }

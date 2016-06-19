@@ -34,15 +34,30 @@ impl Default for Blur {
 
 #[derive(Copy, Clone, Debug)]
 pub struct Image {
-	pub rotate: Option<f32>,
-	pub depth:  f32,
+	pub rotate:  Option<f32>,
+	pub scale:   Scale,
 }
 
 impl Default for Image {
 	fn default() -> Image {
 		Image {
-			rotate: Some(0.2),
-			depth:  200.0,
+			rotate:  Some(0.000005),
+			scale:   Default::default(),
+		}
+	}
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Scale {
+	pub max:  f32,
+	pub step: f32,
+}
+
+impl Default for Scale {
+	fn default() -> Scale {
+		Scale {
+			max:  400.0,
+			step: 0.001,
 		}
 	}
 }
@@ -80,8 +95,14 @@ impl Config {
 		if let Some(table) = table.get("image").and_then(|v| v.as_table()) {
 			let mut image = Image::default();
 
-			if let Some(value) = table.get("depth").and_then(|v| v.as_float()) {
-				image.depth = value as f32;
+			if let Some(table) = table.get("scale").and_then(|v| v.as_table()) {
+				if let Some(value) = table.get("max").and_then(|v| v.as_float()) {
+					image.scale.max = value as f32;
+				}
+
+				if let Some(value) = table.get("step").and_then(|v| v.as_float()) {
+					image.scale.step = value as f32;
+				}
 			}
 
 			match table.get("rotate") {
