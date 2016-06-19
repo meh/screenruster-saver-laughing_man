@@ -1,14 +1,13 @@
 #version 110
 
-uniform sampler2D texture;
 varying vec2 v_Texture;
+
+uniform sampler2D texture;
+uniform float alpha;
 
 void main() {
 	vec4 color = texture2D(texture, v_Texture);
-
-	if (color.a == 0.5) {
-		color.a = 0.0;
-	}
+	color.a = min(color.a, alpha);
 
 	gl_FragColor = color;
 }
