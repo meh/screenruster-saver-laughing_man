@@ -2,13 +2,15 @@ use api::config;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Config {
-	pub blur: Option<Blur>,
+	pub blur:  Option<Blur>,
+	pub image: Image,
 }
 
 impl Default for Config {
 	fn default() -> Config {
 		Config {
-			blur: Some(Default::default()),
+			blur:  Some(Default::default()),
+			image: Default::default(),
 		}
 	}
 }
@@ -24,8 +26,23 @@ impl Default for Blur {
 	fn default() -> Blur {
 		Blur {
 			max:   1.2,
-			step:  0.0001,
+			step:  0.00001,
 			count: 4,
+		}
+	}
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Image {
+	pub rotate: Option<f32>,
+	pub depth:  f32,
+}
+
+impl Default for Image {
+	fn default() -> Image {
+		Image {
+			rotate: Some(0.2),
+			depth:  200.0,
 		}
 	}
 }
@@ -58,6 +75,28 @@ impl Config {
 			}
 
 			_ => ()
+		}
+
+		if let Some(table) = table.get("image").and_then(|v| v.as_table()) {
+			let mut image = Image::default();
+
+			if let Some(value) = table.get("depth").and_then(|v| v.as_float()) {
+				image.depth = value as f32;
+			}
+
+			match table.get("rotate") {
+				Some(&config::Value::Boolean(false)) => {
+					image.rotate = None
+				}
+
+				Some(&config::Value::Float(value)) => {
+					image.rotate = Some(value as f32);
+				}
+
+				_ => ()
+			}
+
+			config.image = image;
 		}
 
 		config

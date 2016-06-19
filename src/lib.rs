@@ -3,11 +3,16 @@
 #[macro_use]
 extern crate api;
 
-mod saver;
-pub use saver::Saver;
+extern crate nalgebra as na;
 
 mod config;
 pub use config::Config;
+
+mod saver;
+pub use saver::Saver;
+
+mod scene;
+pub use scene::Scene;
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
