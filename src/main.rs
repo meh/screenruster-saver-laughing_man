@@ -1,8 +1,7 @@
 #![feature(type_ascription)]
 
 #[macro_use]
-extern crate api;
-
+extern crate screenruster_saver as screen;
 extern crate nalgebra as na;
 
 mod config;
@@ -22,6 +21,6 @@ pub struct Vertex {
 
 implement_vertex!(Vertex, position, texture);
 
-pub fn new(config: api::config::Table) -> Box<saver::Saver> {
-	Box::new(Saver::new(Config::new(config)))
+fn main() {
+	screen::run(Saver::new()).unwrap();
 }

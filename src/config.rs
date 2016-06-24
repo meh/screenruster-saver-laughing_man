@@ -1,4 +1,4 @@
-	use api::config;
+use screen::json::JsonValue;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Config {
@@ -48,55 +48,45 @@ impl Default for Man {
 }
 
 impl Config {
-	pub fn new(table: config::Table) -> Config {
+	pub fn new(table: JsonValue) -> Config {
 		let mut config = Config::default();
 
-		match table.get("blur") {
-			Some(&config::Value::Boolean(false)) => {
+		// Blur.
+		{
+			if let Some(false) = table["blur"].as_bool() {
 				config.blur = None
 			}
-
-			Some(&config::Value::Table(ref table)) => {
+			else {
 				let mut blur = Blur::default();
 
-				if let Some(value) = table.get("max").and_then(|v| v.as_float()) {
-					blur.max = value as f32;
+				if let Some(value) = table["blur"]["max"].as_f32() {
+					blur.max = value;
 				}
 
-				if let Some(value) = table.get("step").and_then(|v| v.as_float()) {
-					blur.step = value as f32;
+				if let Some(value) = table["blur"]["step"].as_f32() {
+					blur.step = value;
 				}
 
-				if let Some(value) = table.get("count").and_then(|v| v.as_integer()) {
-					blur.count = value as usize;
+				if let Some(value) = table["blur"]["count"].as_usize() {
+					blur.count = value;
 				}
 
 				config.blur = Some(blur);
 			}
-
-			_ => ()
 		}
 
-		if let Some(table) = table.get("man").and_then(|v| v.as_table()) {
-			let mut man = Man::default();
-
-			if let Some(value) = table.get("scale").and_then(|v| v.as_float()) {
-				man.scale = value as f32;
+		// Man.
+		{
+			if let Some(value) = table["man"]["scale"].as_f32() {
+				config.man.scale = value;
 			}
 
-			match table.get("rotate") {
-				Some(&config::Value::Boolean(false)) => {
-					man.rotate = None
-				}
-
-				Some(&config::Value::Float(value)) => {
-					man.rotate = Some(value as f32);
-				}
-
-				_ => ()
+			if let Some(false) = table["man"]["rotate"].as_bool() {
+				config.man.rotate = None;
 			}
-
-			config.man = man;
+			else if let Some(value) = table["man"]["rotate"].as_f32() {
+				config.man.rotate = Some(value);
+			}
 		}
 
 		config

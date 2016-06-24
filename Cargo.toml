@@ -6,7 +6,5 @@ authors = ["meh. <meh@schizofreni.co>"]
 license = "WTFPL"
 
 [dependencies]
-nalgebra = "*"
-
-[dependencies.api]
-path = "../api"
+nalgebra           = "*"
+screenruster-saver = { path = "../saver" }

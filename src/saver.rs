@@ -1,14 +1,15 @@
 use std::rc::Rc;
 
-use api;
-use api::gl::{self, Surface};
-use api::image::GenericImage;
+use screen;
+use screen::json::JsonValue;
+use screen::gl::{self, Surface};
+use screen::image::GenericImage;
 
 use {Config, Vertex, Scene};
 
 pub struct Saver {
-	config: Config,
-	state:  api::State,
+	config: Option<Config>,
+	state:  screen::State,
 	gl:     Option<Graphics>,
 
 	dialog: bool,
@@ -41,7 +42,7 @@ pub struct Graphics {
 }
 
 mod graphics {
-	use api::gl;
+	use screen::gl;
 	use Vertex;
 
 	pub struct Screen {
@@ -67,9 +68,9 @@ mod graphics {
 }
 
 impl Saver {
-	pub fn new(config: Config) -> Saver {
+	pub fn new() -> Saver {
 		Saver {
-			config: config,
+			config: None,
 			state:  Default::default(),
 			gl:     None,
 
@@ -80,8 +81,13 @@ impl Saver {
 	}
 }
 
-impl api::Saver for Saver {
-	fn initialize(&mut self, context: Rc<gl::backend::Context>) {
+impl screen::Saver for Saver {
+	fn config(&mut self, config: JsonValue) {
+		self.config = Some(Config::new(config));
+	}
+
+	fn graphics(&mut self, context: Rc<gl::backend::Context>) {
+		let config          = self.config.as_ref().unwrap();
 		let (width, height) = context.get_framebuffer_dimensions();
 
 		let scene = Scene::new(width, height);
@@ -126,7 +132,7 @@ impl api::Saver for Saver {
 
 		macro_rules! load {
 			($path:expr) => ({
-				let image   = api::image::load_from_memory(include_bytes!($path)).unwrap();
+				let image   = screen::image::load_from_memory(include_bytes!($path)).unwrap();
 				let size    = image.dimensions();
 				let image   = gl::texture::RawImage2d::from_raw_rgba_reversed(image.to_rgba().into_raw(), size);
 				let texture = gl::texture::Texture2d::with_mipmaps(&context, image, gl::texture::MipmapsOption::NoMipmap).unwrap();
@@ -166,7 +172,7 @@ impl api::Saver for Saver {
 
 		// Initiate `Man` and calculate step from blur step.
 		self.man = Some({
-			let step = if let Some(blur) = self.config.blur {
+			let step = if let Some(blur) = config.blur {
 				blur.step / blur.max
 			}
 			else {
@@ -180,7 +186,7 @@ impl api::Saver for Saver {
 				alpha: 0.0,
 				step:  step,
 
-				scale:    self.config.man.scale,
+				scale:    config.man.scale,
 				rotation: 0.0,
 			}
 		});
@@ -197,14 +203,14 @@ impl api::Saver for Saver {
 	}
 
 	fn begin(&mut self) {
-		self.state = api::State::Begin;
+		self.state = screen::State::Begin;
 	}
 
 	fn end(&mut self) {
-		self.state = api::State::End;
+		self.state = screen::State::End;
 	}
 
-	fn state(&self) -> api::State {
+	fn state(&self) -> screen::State {
 		self.state
 	}
 
@@ -213,24 +219,25 @@ impl api::Saver for Saver {
 	}
 
 	fn update(&mut self) {
-		let man = self.man.as_mut().unwrap();
+		let config = self.config.as_ref().unwrap();
+		let man    = self.man.as_mut().unwrap();
 
 		match self.state {
-			api::State::Begin => {
-				if let Some(blur) = self.config.blur {
+			screen::State::Begin => {
+				if let Some(blur) = config.blur {
 					if self.blur < blur.max {
 						self.blur += blur.step;
 						man.alpha += man.step;
 					}
 					else {
-						self.state = api::State::Running;
+						self.state = screen::State::Running;
 						man.alpha = 1.0;
 					}
 				}
 			}
 
-			api::State::Running => {
-				if let Some(step) = self.config.man.rotate {
+			screen::State::Running => {
+				if let Some(step) = config.man.rotate {
 					man.rotation += step;
 
 					if man.rotation > 360.0 {
@@ -239,28 +246,29 @@ impl api::Saver for Saver {
 				}
 			}
 
-			api::State::End => {
-				if let Some(blur) = self.config.blur {
+			screen::State::End => {
+				if let Some(blur) = config.blur {
 					if self.blur > 0.0 {
 						self.blur -= blur.step;
 						man.alpha -= man.step;
 					}
 					else {
-						self.state = api::State::None;
+						self.state = screen::State::None;
 					}
 				}
 			}
 
-			api::State::None => (),
+			screen::State::None => (),
 		}
 	}
 
-	fn render(&self, target: &mut gl::Frame, screen: &gl::texture::Texture2d) {
-		let gl  = self.gl.as_ref().unwrap();
-		let man = self.man.as_ref().unwrap();
+	fn render<S: Surface>(&self, target: &mut S, screen: &gl::texture::Texture2d) {
+		let gl     = self.gl.as_ref().unwrap();
+		let config = self.config.as_ref().unwrap();
+		let man    = self.man.as_ref().unwrap();
 
 		// Blur the screen.
-		if let Some(blur) = self.config.blur {
+		if let Some(blur) = config.blur {
 			let mut frame = (gl::framebuffer::SimpleFrameBuffer::new(&gl.context, &gl.screen.transient.0).unwrap(),
 			                 gl::framebuffer::SimpleFrameBuffer::new(&gl.context, &gl.screen.transient.1).unwrap());
 
