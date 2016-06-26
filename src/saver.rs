@@ -86,7 +86,7 @@ impl screen::Saver for Saver {
 		self.config = Some(Config::new(config));
 	}
 
-	fn graphics(&mut self, context: Rc<gl::backend::Context>) {
+	fn initialize(&mut self, context: Rc<gl::backend::Context>) {
 		let config          = self.config.as_ref().unwrap();
 		let (width, height) = context.get_framebuffer_dimensions();
 
