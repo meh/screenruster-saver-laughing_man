@@ -20,12 +20,10 @@ impl Scene {
 		}
 	}
 
-	#[inline(always)]
 	pub fn to_matrix(&self) -> na::Matrix4<f32> {
 		self.projection.to_matrix()
 	}
 
-#[inline(always)]
 	pub fn position(&self, x: u32, y: u32) -> na::Matrix4<f32> {
 		let x = x as f32;
 		let y = y as f32;
@@ -48,12 +46,10 @@ impl Scene {
 			}, -500.0), na::zero()))
 	}
 
-	#[inline(always)]
 	pub fn rotate(&self, deg: f32) -> na::Matrix4<f32> {
 		na::to_homogeneous(&na::Rotation3::new_with_euler_angles(0.0, 0.0, deg))
 	}
 
-	#[inline(always)]
 	pub fn scale(&self, size: f32) -> na::Matrix4<f32> {
 		na::Matrix4::new(size, 0.0,  0.0,    0.0,
 		                 0.0,  size, 0.0,    0.0,

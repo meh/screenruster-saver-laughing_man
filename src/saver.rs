@@ -241,7 +241,7 @@ impl screen::Saver for Saver {
 					man.rotation += step;
 
 					if man.rotation > 360.0 {
-						man.rotation = man.rotation - 360.0;
+						man.rotation -= 360.0;
 					}
 				}
 			}
