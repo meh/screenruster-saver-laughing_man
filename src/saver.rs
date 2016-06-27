@@ -24,10 +24,8 @@ pub struct Man {
 	x: u32,
 	y: u32,
 
-	alpha: f32,
-	step:  f32,
-
-	rotation: f32,
+	alpha:    (f32, f32),
+	rotation: (f32, u32),
 	scale:    f32,
 }
 
@@ -183,11 +181,9 @@ impl screen::Saver for Saver {
 				x: width / 2,
 				y: height / 2,
 
-				alpha: 0.0,
-				step:  step,
-
+				alpha:    (0.0, step),
+				rotation: (0.0, 0),
 				scale:    config.man.scale,
-				rotation: 0.0,
 			}
 		});
 
@@ -226,22 +222,23 @@ impl screen::Saver for Saver {
 			screen::State::Begin => {
 				if let Some(blur) = config.blur {
 					if self.blur < blur.max {
-						self.blur += blur.step;
-						man.alpha += man.step;
+						self.blur   += blur.step;
+						man.alpha.0 += man.alpha.1;
 					}
 					else {
-						self.state = screen::State::Running;
-						man.alpha = 1.0;
+						self.state  = screen::State::Running;
+						man.alpha.0 = 1.0;
 					}
 				}
 			}
 
 			screen::State::Running => {
 				if let Some(step) = config.man.rotate {
-					man.rotation += step;
+					man.rotation.1 += 1;
+					man.rotation.0  = man.rotation.1 as f32 * step;
 
-					if man.rotation > 360.0 {
-						man.rotation -= 360.0;
+					if man.rotation.0 > 360.0 {
+						man.rotation = (0.0, 0);
 					}
 				}
 			}
@@ -249,11 +246,12 @@ impl screen::Saver for Saver {
 			screen::State::End => {
 				if let Some(blur) = config.blur {
 					if self.blur > 0.0 {
-						self.blur -= blur.step;
-						man.alpha -= man.step;
+						self.blur   -= blur.step;
+						man.alpha.0 -= man.alpha.1;
 					}
 					else {
-						self.state = screen::State::None;
+						self.state  = screen::State::None;
+						man.alpha.0 = 0.0;
 					}
 				}
 			}
@@ -329,14 +327,14 @@ impl screen::Saver for Saver {
 				* gl.scene.scale(man.scale);
 
 			// If we're in rotation mode, compose the two images.
-			if man.alpha == 1.0 {
+			if man.alpha.0 == 1.0 {
 				// Draw dynamic image.
 				{
-					let mvp = mvp * gl.scene.rotate(man.rotation);
+					let mvp = mvp * gl.scene.rotate(man.rotation.0);
 
 					let uniforms = uniform! {
 						mvp:     *mvp.as_ref(),
-						alpha:   man.alpha,
+						alpha:   man.alpha.0,
 						texture: gl.man.dynamic.texture.sampled()
 							.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
 							.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
@@ -364,7 +362,7 @@ impl screen::Saver for Saver {
 				{
 					let uniforms = uniform! {
 						mvp:     *mvp.as_ref(),
-						alpha:   man.alpha,
+						alpha:   man.alpha.0,
 						texture: gl.man.fixed.texture.sampled()
 							.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
 							.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
@@ -392,7 +390,7 @@ impl screen::Saver for Saver {
 			else {
 				let uniforms = uniform! {
 					mvp:     *mvp.as_ref(),
-					alpha:   man.alpha,
+					alpha:   man.alpha.0,
 					texture: gl.man.complete.texture.sampled()
 						.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
 						.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
