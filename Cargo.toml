@@ -7,4 +7,4 @@ license = "WTFPL"
 
 [dependencies]
 nalgebra           = "*"
-screenruster-saver = { git = "https://github.com/meh/screenruster-saver" }
+screenruster-saver = "0.1"
