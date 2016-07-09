@@ -53,13 +53,19 @@ mod graphics {
 	}
 
 	pub struct Man {
-		pub fixed:    Image,
-		pub dynamic:  Image,
-		pub complete: Image,
+		pub composite: gl::texture::Texture2d,
+		pub vertex:    gl::VertexBuffer<Vertex>,
+		pub index:     gl::IndexBuffer<u16>,
+		pub program:   gl::Program,
+
+		pub fixed:   Image,
+		pub dynamic: Image,
 	}
 
 	pub struct Image {
 		pub texture: gl::texture::Texture2d,
+		pub width:   u32,
+		pub height:  u32,
 		pub vertex:  gl::VertexBuffer<Vertex>,
 		pub index:   gl::IndexBuffer<u16>,
 		pub program: gl::Program,
@@ -148,25 +154,55 @@ impl screen::Saver for Saver {
 
 				let program = program!(&context,
 					110 => {
-						vertex:   include_str!("../assets/shaders/image/vertex.glsl"),
-						fragment: include_str!("../assets/shaders/image/fragment.glsl"),
+						vertex:   include_str!("../assets/shaders/plain/vertex.glsl"),
+						fragment: include_str!("../assets/shaders/plain/fragment.glsl"),
 					},
 				).unwrap();
 
 				graphics::Image {
 					texture: texture,
+					width:   size.0,
+					height:  size.1,
+
 					vertex:  vertex,
 					index:   index,
 					program: program,
 				}
-
 			});
 		}
 
-		let man = graphics::Man {
-			fixed:    load!("../assets/fixed.png"),
-			dynamic:  load!("../assets/dynamic.png"),
-			complete: load!("../assets/complete.png"),
+		let man = {
+			let fixed   = load!("../assets/fixed.png");
+			let dynamic = load!("../assets/dynamic.png");
+
+			let composite = gl::texture::Texture2d::empty(&context, fixed.width, fixed.height).unwrap();
+
+			let vertex = gl::VertexBuffer::new(&context, &[
+				Vertex { position: [-1.0, -1.0], texture: [0.0, 0.0] },
+				Vertex { position: [-1.0,  1.0], texture: [0.0, 1.0] },
+				Vertex { position: [ 1.0,  1.0], texture: [1.0, 1.0] },
+				Vertex { position: [ 1.0, -1.0], texture: [1.0, 0.0] },
+			]).unwrap();
+
+			let index = gl::IndexBuffer::new(&context, gl::index::PrimitiveType::TriangleStrip,
+				&[1 as u16, 2, 0, 3]).unwrap();
+
+			let program = program!(&context,
+				110 => {
+					vertex:   include_str!("../assets/shaders/composite/vertex.glsl"),
+					fragment: include_str!("../assets/shaders/composite/fragment.glsl"),
+				},
+			).unwrap();
+
+			graphics::Man {
+				composite: composite,
+				vertex:    vertex,
+				index:     index,
+				program:   program,
+
+				fixed:   fixed,
+				dynamic: dynamic,
+			}
 		};
 
 		// Initiate `Man` and calculate step from blur step.
@@ -242,6 +278,18 @@ impl screen::Saver for Saver {
 		let config = self.config.as_ref().unwrap();
 		let man    = self.man.as_mut().unwrap();
 
+		if let Some(step) = config.man.rotate {
+			if man.rotation.2 {
+				man.rotation.1 += 1;
+				man.rotation.0  = man.rotation.1 as f32 * step;
+
+				if man.rotation.0 > 360.0 {
+					man.rotation.0 = 0.0;
+					man.rotation.1 = 0;
+				}
+			}
+		}
+
 		match self.state {
 			screen::State::Begin => {
 				if let Some(blur) = config.blur {
@@ -252,20 +300,6 @@ impl screen::Saver for Saver {
 					else {
 						self.state  = screen::State::Running;
 						man.alpha.0 = 1.0;
-					}
-				}
-			}
-
-			screen::State::Running => {
-				if let Some(step) = config.man.rotate {
-					if man.rotation.2 {
-						man.rotation.1 += 1;
-						man.rotation.0  = man.rotation.1 as f32 * step;
-
-						if man.rotation.0 > 360.0 {
-							man.rotation.0 = 0.0;
-							man.rotation.1 = 0;
-						}
 					}
 				}
 			}
@@ -283,6 +317,7 @@ impl screen::Saver for Saver {
 				}
 			}
 
+			screen::State::Running => (),
 			screen::State::None => (),
 		}
 	}
@@ -340,6 +375,7 @@ impl screen::Saver for Saver {
 			// Draw blurred texture to screen.
 			{
 				let uniforms = uniform! {
+					mvp:     *gl.scene.none().as_ref(),
 					texture: gl.screen.transient.1.sampled(),
 				};
 
@@ -349,84 +385,81 @@ impl screen::Saver for Saver {
 		
 		// If the dialog is not open.
 		if !self.dialog {
-			let mvp = gl.scene.to_matrix()
-				* gl.scene.position(man.x, man.y)
-				* gl.scene.scale(man.scale);
+			let mut frame = gl::framebuffer::SimpleFrameBuffer::new(&gl.context, &gl.man.composite).unwrap();
+			frame.clear_color(0.0, 0.0, 0.0, 0.0);
 
-			// If we're in rotation mode, compose the two images.
-			if man.alpha.0 == 1.0 {
-				// Draw dynamic image.
-				{
-					let mvp = mvp * gl.scene.rotate(man.rotation.0);
-
-					let uniforms = uniform! {
-						mvp:     *mvp.as_ref(),
-						alpha:   man.alpha.0,
-						hue:     man.hue,
-						texture: gl.man.dynamic.texture.sampled()
-							.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
-							.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
-					};
-
-					target.draw(&gl.man.dynamic.vertex, &gl.man.dynamic.index, &gl.man.dynamic.program, &uniforms, &gl::DrawParameters {
-						blend: gl::Blend {
-							color: gl::BlendingFunction::Addition {
-								source:      gl::LinearBlendingFactor::SourceAlpha,
-								destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
-							},
-
-							alpha: gl::BlendingFunction::Addition {
-								source:      gl::LinearBlendingFactor::SourceAlpha,
-								destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
-							},
-
-							.. Default::default()
-						},
-
-						.. Default::default()
-					}).unwrap();
-				}
-
-				{
-					let uniforms = uniform! {
-						mvp:     *mvp.as_ref(),
-						alpha:   man.alpha.0,
-						hue:     man.hue,
-						texture: gl.man.fixed.texture.sampled()
-							.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
-							.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
-					};
-
-					target.draw(&gl.man.fixed.vertex, &gl.man.fixed.index, &gl.man.fixed.program, &uniforms, &gl::DrawParameters {
-						blend: gl::Blend {
-							color: gl::BlendingFunction::Addition {
-								source:      gl::LinearBlendingFactor::SourceAlpha,
-								destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
-							},
-
-							alpha: gl::BlendingFunction::Addition {
-								source:      gl::LinearBlendingFactor::SourceAlpha,
-								destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
-							},
-
-							.. Default::default()
-						},
-
-						.. Default::default()
-					}).unwrap();
-				}
-			}
-			else {
+			// Draw dynamic image.
+			{
 				let uniforms = uniform! {
-					mvp:     *mvp.as_ref(),
-					alpha:   man.alpha.0,
-					hue:     man.hue,
-					texture: gl.man.complete.texture.sampled()
+					mvp:     *gl.scene.rotate(man.rotation.0).as_ref(),
+					texture: gl.man.dynamic.texture.sampled()
 						.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
 						.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
 				};
 
-				target.draw(&gl.man.fixed.vertex, &gl.man.fixed.index, &gl.man.fixed.program, &uniforms, &gl::DrawParameters {
+				frame.draw(&gl.man.dynamic.vertex, &gl.man.dynamic.index, &gl.man.dynamic.program, &uniforms, &gl::DrawParameters {
+					blend: gl::Blend {
+						color: gl::BlendingFunction::Addition {
+							source:      gl::LinearBlendingFactor::SourceAlpha,
+							destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
+						},
+
+						alpha: gl::BlendingFunction::Addition {
+							source:      gl::LinearBlendingFactor::SourceAlpha,
+							destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
+						},
+
+						.. Default::default()
+					},
+
+					.. Default::default()
+				}).unwrap();
+			}
+
+			// Draw fixed image.
+			{
+				let uniforms = uniform! {
+					mvp:     *gl.scene.none().as_ref(),
+					texture: gl.man.fixed.texture.sampled()
+						.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
+						.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
+				};
+
+				frame.draw(&gl.man.fixed.vertex, &gl.man.fixed.index, &gl.man.fixed.program, &uniforms, &gl::DrawParameters {
+					blend: gl::Blend {
+						color: gl::BlendingFunction::Addition {
+							source:      gl::LinearBlendingFactor::SourceAlpha,
+							destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
+						},
+
+						alpha: gl::BlendingFunction::Addition {
+							source:      gl::LinearBlendingFactor::SourceAlpha,
+							destination: gl::LinearBlendingFactor::OneMinusSourceAlpha
+						},
+
+						.. Default::default()
+					},
+
+					.. Default::default()
+				}).unwrap();
+			}
+
+			// Draw composition to target with alpha and shifted hue.
+			{
+				let mvp = gl.scene.to_matrix()
+					* gl.scene.position(man.x, man.y)
+					* gl.scene.scale(man.scale);
+
+				let uniforms = uniform! {
+					mvp:     *mvp.as_ref(),
+					alpha:   man.alpha.0,
+					hue:     man.hue,
+					texture: gl.man.composite.sampled()
+						.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
+						.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
+				};
+
+				target.draw(&gl.man.vertex, &gl.man.index, &gl.man.program, &uniforms, &gl::DrawParameters {
 					blend: gl::Blend {
 						color: gl::BlendingFunction::Addition {
 							source:      gl::LinearBlendingFactor::SourceAlpha,

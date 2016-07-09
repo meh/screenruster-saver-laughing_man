@@ -24,6 +24,10 @@ impl Scene {
 		self.projection.to_matrix()
 	}
 
+	pub fn none(&self) -> na::Matrix4<f32> {
+		na::new_identity(4)
+	}
+
 	pub fn position(&self, x: u32, y: u32) -> na::Matrix4<f32> {
 		let x = x as f32;
 		let y = y as f32;
