@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use screen;
+use screen::{self, Password};
 use screen::json::JsonValue;
 use screen::gl::{self, Surface};
 use screen::image::GenericImage;
@@ -25,8 +25,9 @@ pub struct Man {
 	y: u32,
 
 	alpha:    (f32, f32),
-	rotation: (f32, u32),
+	rotation: (f32, u32, bool),
 	scale:    f32,
+	hue:      f32,
 }
 
 pub struct Graphics {
@@ -182,8 +183,9 @@ impl screen::Saver for Saver {
 				y: height / 2,
 
 				alpha:    (0.0, step),
-				rotation: (0.0, 0),
+				rotation: (0.0, 0, true),
 				scale:    config.man.scale,
+				hue:      0.0,
 			}
 		});
 
@@ -210,8 +212,30 @@ impl screen::Saver for Saver {
 		self.state
 	}
 
-	fn dialog(&mut self, active: bool) {
-		self.dialog = active;
+	fn password(&mut self, password: Password) {
+		match password {
+			Password::Check => {
+				if let Some(man) = self.man.as_mut() {
+					man.rotation.2 = false;
+				}
+			}
+
+			Password::Success => {
+				if let Some(man) = self.man.as_mut() {
+					man.rotation.2 = true;
+					man.hue        = -80.0;
+				}
+			}
+
+			Password::Failure => {
+				if let Some(man) = self.man.as_mut() {
+					man.rotation.2 = true;
+					man.hue        = 150.0;
+				}
+			}
+
+			_ => ()
+		}
 	}
 
 	fn update(&mut self) {
@@ -234,11 +258,14 @@ impl screen::Saver for Saver {
 
 			screen::State::Running => {
 				if let Some(step) = config.man.rotate {
-					man.rotation.1 += 1;
-					man.rotation.0  = man.rotation.1 as f32 * step;
+					if man.rotation.2 {
+						man.rotation.1 += 1;
+						man.rotation.0  = man.rotation.1 as f32 * step;
 
-					if man.rotation.0 > 360.0 {
-						man.rotation = (0.0, 0);
+						if man.rotation.0 > 360.0 {
+							man.rotation.0 = 0.0;
+							man.rotation.1 = 0;
+						}
 					}
 				}
 			}
@@ -335,6 +362,7 @@ impl screen::Saver for Saver {
 					let uniforms = uniform! {
 						mvp:     *mvp.as_ref(),
 						alpha:   man.alpha.0,
+						hue:     man.hue,
 						texture: gl.man.dynamic.texture.sampled()
 							.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
 							.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
@@ -363,6 +391,7 @@ impl screen::Saver for Saver {
 					let uniforms = uniform! {
 						mvp:     *mvp.as_ref(),
 						alpha:   man.alpha.0,
+						hue:     man.hue,
 						texture: gl.man.fixed.texture.sampled()
 							.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
 							.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
@@ -391,6 +420,7 @@ impl screen::Saver for Saver {
 				let uniforms = uniform! {
 					mvp:     *mvp.as_ref(),
 					alpha:   man.alpha.0,
+					hue:     man.hue,
 					texture: gl.man.complete.texture.sampled()
 						.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
 						.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
