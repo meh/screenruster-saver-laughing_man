@@ -10,5 +10,5 @@ repository  = "https://github.com/meh/screenruster-saver-laughing_man"
 keywords    = ["saver", "screenruster", "x11"]
 
 [dependencies]
-nalgebra           = "*"
+nalgebra           = "0.8"
 screenruster-saver = "0.1"
