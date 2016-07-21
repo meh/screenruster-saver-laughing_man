@@ -253,11 +253,11 @@ impl screen::Saver for Saver {
 		});
 	}
 
-	fn begin(&mut self) {
+	fn start(&mut self) {
 		self.state = screen::State::Begin;
 	}
 
-	fn end(&mut self) {
+	fn stop(&mut self) {
 		self.state = screen::State::End;
 	}
 
