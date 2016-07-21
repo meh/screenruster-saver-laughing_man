@@ -15,6 +15,7 @@
 // You should have received a copy of the GNU General Public License
 // along with screenruster.  If not, see <http://www.gnu.org/licenses/>.
 
+use std::cmp;
 use na;
 
 pub struct Scene {
@@ -72,6 +73,8 @@ impl Scene {
 	}
 
 	pub fn scale(&self, size: f32) -> na::Matrix4<f32> {
+		let size = size * (cmp::min(self.width, self.height) as f32 / 1080.0);
+
 		na::Matrix4::new(size, 0.0,  0.0,    0.0,
 		                 0.0,  size, 0.0,    0.0,
 		                 0.0,  0.0,  size, 0.0,
