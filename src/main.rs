@@ -39,5 +39,5 @@ pub struct Vertex {
 implement_vertex!(Vertex, position, texture);
 
 fn main() {
-	screen::run(Saver::new()).unwrap();
+	screen::run(Saver::default()).unwrap();
 }

@@ -89,8 +89,8 @@ mod graphics {
 	}
 }
 
-impl Saver {
-	pub fn new() -> Saver {
+impl Default for Saver {
+	fn default() -> Saver {
 		Saver {
 			config: None,
 			state:  Default::default(),
@@ -308,6 +308,9 @@ impl screen::Saver for Saver {
 		}
 
 		match self.state {
+			screen::State::Running |
+			screen::State::None => (),
+
 			screen::State::Begin => {
 				if let Some(blur) = config.blur {
 					if self.blur < blur.max {
@@ -333,9 +336,6 @@ impl screen::Saver for Saver {
 					}
 				}
 			}
-
-			screen::State::Running => (),
-			screen::State::None => (),
 		}
 	}
 
