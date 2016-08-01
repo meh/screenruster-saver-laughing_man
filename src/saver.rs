@@ -346,46 +346,48 @@ impl screen::Saver for Saver {
 
 		// Blur the screen.
 		if let Some(blur) = config.blur {
-			let mut frame = (gl::framebuffer::SimpleFrameBuffer::new(&gl.context, &gl.screen.transient.0).unwrap(),
-			                 gl::framebuffer::SimpleFrameBuffer::new(&gl.context, &gl.screen.transient.1).unwrap());
+			if self.state != screen::State::Running {
+				let mut frame = (gl::framebuffer::SimpleFrameBuffer::new(&gl.context, &gl.screen.transient.0).unwrap(),
+			                 	 gl::framebuffer::SimpleFrameBuffer::new(&gl.context, &gl.screen.transient.1).unwrap());
 
-			// Draw screen to frame.
-			{
-				let uniforms = uniform! {
-					texture: screen.sampled(),
-				};
-
-				frame.1.draw(&gl.screen.vertex, &gl.screen.index, &gl.screen.plain, &uniforms, &Default::default()).unwrap();
-			}
-
-			// Repeat the blur to obtain a better effect.
-			for _ in 0 .. blur.count {
-				// Blur horizontally.
+				// Draw screen to frame.
 				{
 					let uniforms = uniform! {
-						texture: gl.screen.transient.1.sampled()
-							.wrap_function(gl::uniforms::SamplerWrapFunction::Clamp),
-
-						radius:     self.blur,
-						resolution: gl.width as f32,
-						direction:  (1.0, 0.0): (f32, f32),
+						texture: screen.sampled(),
 					};
 
-					frame.0.draw(&gl.screen.vertex, &gl.screen.index, &gl.screen.blur, &uniforms, &Default::default()).unwrap();
+					frame.1.draw(&gl.screen.vertex, &gl.screen.index, &gl.screen.plain, &uniforms, &Default::default()).unwrap();
 				}
 
-				// Blur vertically.
-				{
-					let uniforms = uniform! {
-						texture: gl.screen.transient.0.sampled()
-							.wrap_function(gl::uniforms::SamplerWrapFunction::Clamp),
+				// Repeat the blur to obtain a better effect.
+				for _ in 0 .. blur.count {
+					// Blur horizontally.
+					{
+						let uniforms = uniform! {
+							texture: gl.screen.transient.1.sampled()
+								.wrap_function(gl::uniforms::SamplerWrapFunction::Clamp),
 
-						radius:     self.blur,
-						resolution: gl.height as f32,
-						direction:  (0.0, 1.0): (f32, f32),
-					};
+							radius:     self.blur,
+							resolution: gl.width as f32,
+							direction:  (1.0, 0.0): (f32, f32),
+						};
 
-					frame.1.draw(&gl.screen.vertex, &gl.screen.index, &gl.screen.blur, &uniforms, &Default::default()).unwrap();
+						frame.0.draw(&gl.screen.vertex, &gl.screen.index, &gl.screen.blur, &uniforms, &Default::default()).unwrap();
+					}
+
+					// Blur vertically.
+					{
+						let uniforms = uniform! {
+							texture: gl.screen.transient.0.sampled()
+								.wrap_function(gl::uniforms::SamplerWrapFunction::Clamp),
+
+							radius:     self.blur,
+							resolution: gl.height as f32,
+							direction:  (0.0, 1.0): (f32, f32),
+						};
+
+						frame.1.draw(&gl.screen.vertex, &gl.screen.index, &gl.screen.blur, &uniforms, &Default::default()).unwrap();
+					}
 				}
 			}
 
