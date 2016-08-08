@@ -266,28 +266,34 @@ impl screen::Saver for Saver {
 	}
 
 	fn password(&mut self, password: Password) {
-		match password {
-			Password::Check => {
-				if let Some(man) = self.man.as_mut() {
+		if let Some(man) = self.man.as_mut() {
+			match password {
+				Password::Insert => {
+					man.rotation.1 += 23;
+				}
+
+				Password::Delete => {
+					man.rotation.1 -= 23;
+				}
+
+				Password::Reset => {
+					man.rotation.1 = 0;
+				}
+
+				Password::Check => {
 					man.rotation.2 = false;
 				}
-			}
 
-			Password::Success => {
-				if let Some(man) = self.man.as_mut() {
+				Password::Success => {
 					man.rotation.2 = true;
 					man.hue        = -80.0;
 				}
-			}
 
-			Password::Failure => {
-				if let Some(man) = self.man.as_mut() {
+				Password::Failure => {
 					man.rotation.2 = true;
 					man.hue        = 150.0;
 				}
 			}
-
-			_ => ()
 		}
 	}
 
