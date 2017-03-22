@@ -22,7 +22,7 @@ pub struct Scene {
 	width:  u32,
 	height: u32,
 
-	projection: na::OrthographicMatrix3<f32>,
+	projection: na::Orthographic3<f32>,
 }
 
 impl Scene {
@@ -34,16 +34,16 @@ impl Scene {
 			width:  width,
 			height: height,
 
-			projection: na::OrthographicMatrix3::new(-w / 2.0, w / 2.0, -h / 2.0, h / 2.0, 0.1, 1000.0),
+			projection: na::Orthographic3::new(-w / 2.0, w / 2.0, -h / 2.0, h / 2.0, 0.1, 1000.0),
 		}
 	}
 
 	pub fn to_matrix(&self) -> na::Matrix4<f32> {
-		self.projection.to_matrix()
+		self.projection.to_homogeneous()
 	}
 
 	pub fn none(&self) -> na::Matrix4<f32> {
-		na::new_identity(4)
+		na::Matrix4::identity()
 	}
 
 	pub fn position(&self, x: u32, y: u32) -> na::Matrix4<f32> {
@@ -52,7 +52,7 @@ impl Scene {
 		let w = self.width as f32;
 		let h = self.height as f32;
 
-		na::to_homogeneous(&na::Isometry3::new(na::Vector3::new(
+		na::Isometry3::new(na::Vector3::new(
 			if x > w / 2.0 {
 				-((w / 2.0) - x)
 			}
@@ -65,11 +65,11 @@ impl Scene {
 			}
 			else {
 				y - h / 2.0
-			}, -500.0), na::zero()))
+			}, -500.0), na::zero()).to_homogeneous()
 	}
 
 	pub fn rotate(&self, deg: f32) -> na::Matrix4<f32> {
-		na::to_homogeneous(&na::Rotation3::new_with_euler_angles(0.0, 0.0, deg))
+		na::Rotation3::from_euler_angles(0.0, 0.0, deg).to_homogeneous()
 	}
 
 	pub fn scale(&self, size: f32) -> na::Matrix4<f32> {

@@ -400,7 +400,7 @@ impl screen::Saver for Saver {
 			// Draw blurred texture to screen.
 			{
 				let uniforms = uniform! {
-					mvp:     *gl.scene.none().as_ref(),
+					mvp:     gl.scene.none().into(): [[f32; 4]; 4],
 					texture: gl.screen.transient.1.sampled(),
 				};
 
@@ -416,7 +416,7 @@ impl screen::Saver for Saver {
 			// Draw dynamic image.
 			{
 				let uniforms = uniform! {
-					mvp:     *gl.scene.rotate(man.rotation.0).as_ref(),
+					mvp:     gl.scene.rotate(man.rotation.0).into(): [[f32; 4]; 4],
 					texture: gl.man.dynamic.texture.sampled()
 						.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
 						.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
@@ -444,7 +444,7 @@ impl screen::Saver for Saver {
 			// Draw fixed image.
 			{
 				let uniforms = uniform! {
-					mvp:     *gl.scene.none().as_ref(),
+					mvp:     gl.scene.none().into(): [[f32; 4]; 4],
 					texture: gl.man.fixed.texture.sampled()
 						.minify_filter(gl::uniforms::MinifySamplerFilter::Linear)
 						.magnify_filter(gl::uniforms::MagnifySamplerFilter::Linear),
@@ -476,7 +476,7 @@ impl screen::Saver for Saver {
 					* gl.scene.scale(man.scale);
 
 				let uniforms = uniform! {
-					mvp:     *mvp.as_ref(),
+					mvp:     mvp.into(): [[f32; 4]; 4],
 					alpha:   man.alpha.0,
 					hue:     man.hue,
 					texture: gl.man.composite.sampled()
