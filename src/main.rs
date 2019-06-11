@@ -17,9 +17,7 @@
 
 #![feature(type_ascription)]
 
-#[macro_use]
-extern crate screenruster_saver as screen;
-extern crate nalgebra as na;
+use screen::gl::implement_vertex;
 
 mod config;
 pub use config::Config;

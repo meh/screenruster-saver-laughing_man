@@ -43,7 +43,7 @@ impl Default for Blur {
 	fn default() -> Blur {
 		Blur {
 			max:   1.2,
-			step:  0.00001,
+			step:  0.01,
 			count: 4,
 		}
 	}

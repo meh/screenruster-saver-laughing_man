@@ -16,7 +16,7 @@
 // along with screenruster.  If not, see <http://www.gnu.org/licenses/>.
 
 use std::cmp;
-use na;
+use nalgebra as na;
 
 pub struct Scene {
 	width:  u32,

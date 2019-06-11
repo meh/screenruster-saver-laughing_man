@@ -19,10 +19,9 @@ use std::rc::Rc;
 
 use screen::{self, Password};
 use screen::json::JsonValue;
-use screen::gl::{self, Surface};
-use screen::image::GenericImage;
+use screen::gl::{self, Surface, program, uniform};
 
-use {Config, Vertex, Scene};
+use crate::{Config, Vertex, Scene};
 
 pub struct Saver {
 	config: Option<Config>,
@@ -59,7 +58,7 @@ pub struct Graphics {
 
 mod graphics {
 	use screen::gl;
-	use Vertex;
+	use crate::Vertex;
 
 	pub struct Screen {
 		pub transient: (gl::texture::Texture2d, gl::texture::Texture2d),
@@ -154,9 +153,9 @@ impl screen::Saver for Saver {
 
 		macro_rules! load {
 			($path:expr) => ({
-				let image   = screen::image::load_from_memory(include_bytes!($path)).unwrap();
+				let image   = screen::picto::read::from_memory::<screen::picto::color::Rgba, u8, _>(&include_bytes!($path)[..]).unwrap();
 				let size    = image.dimensions();
-				let image   = gl::texture::RawImage2d::from_raw_rgba_reversed(image.to_rgba().into_raw(), size);
+				let image   = gl::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), size);
 				let texture = gl::texture::Texture2d::with_mipmaps(&context, image, gl::texture::MipmapsOption::NoMipmap).unwrap();
 
 				let vertex = gl::VertexBuffer::new(&context, &[
