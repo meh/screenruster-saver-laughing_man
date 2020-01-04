@@ -61,7 +61,7 @@ mod graphics {
 	use crate::Vertex;
 
 	pub struct Screen {
-		pub transient: (gl::texture::Texture2d, gl::texture::Texture2d),
+		pub transient: (gl::texture::SrgbTexture2d, gl::texture::SrgbTexture2d),
 		pub vertex:    gl::VertexBuffer<Vertex>,
 		pub index:     gl::IndexBuffer<u16>,
 		pub blur:      gl::Program,
@@ -69,7 +69,7 @@ mod graphics {
 	}
 
 	pub struct Man {
-		pub composite: gl::texture::Texture2d,
+		pub composite: gl::texture::SrgbTexture2d,
 		pub vertex:    gl::VertexBuffer<Vertex>,
 		pub index:     gl::IndexBuffer<u16>,
 		pub program:   gl::Program,
@@ -79,7 +79,7 @@ mod graphics {
 	}
 
 	pub struct Image {
-		pub texture: gl::texture::Texture2d,
+		pub texture: gl::texture::SrgbTexture2d,
 		pub width:   u32,
 		pub height:  u32,
 		pub vertex:  gl::VertexBuffer<Vertex>,
@@ -115,8 +115,8 @@ impl screen::Saver for Saver {
 
 		let screen = {
 			// The transient textures are needed to do alternated blurring.
-			let transient = (gl::texture::Texture2d::empty(&context, width, height).unwrap(),
-			                 gl::texture::Texture2d::empty(&context, width, height).unwrap());
+			let transient = (gl::texture::SrgbTexture2d::empty(&context, width, height).unwrap(),
+			                 gl::texture::SrgbTexture2d::empty(&context, width, height).unwrap());
 
 			let vertex = gl::VertexBuffer::new(&context, &[
 				Vertex { position: [-1.0, -1.0], texture: [0.0, 0.0] },
@@ -156,7 +156,7 @@ impl screen::Saver for Saver {
 				let image   = screen::picto::read::from_memory::<screen::picto::color::Rgba, u8, _>(&include_bytes!($path)[..]).unwrap();
 				let size    = image.dimensions();
 				let image   = gl::texture::RawImage2d::from_raw_rgba_reversed(&image.into_raw(), size);
-				let texture = gl::texture::Texture2d::with_mipmaps(&context, image, gl::texture::MipmapsOption::NoMipmap).unwrap();
+				let texture = gl::texture::SrgbTexture2d::with_mipmaps(&context, image, gl::texture::MipmapsOption::NoMipmap).unwrap();
 
 				let vertex = gl::VertexBuffer::new(&context, &[
 					Vertex { position: [-1.0, -1.0], texture: [0.0, 0.0] },
@@ -191,7 +191,7 @@ impl screen::Saver for Saver {
 			let fixed   = load!("../assets/fixed.png");
 			let dynamic = load!("../assets/dynamic.png");
 
-			let composite = gl::texture::Texture2d::empty(&context, fixed.width, fixed.height).unwrap();
+			let composite = gl::texture::SrgbTexture2d::empty(&context, fixed.width, fixed.height).unwrap();
 
 			let vertex = gl::VertexBuffer::new(&context, &[
 				Vertex { position: [-1.0, -1.0], texture: [0.0, 0.0] },
@@ -344,7 +344,7 @@ impl screen::Saver for Saver {
 		}
 	}
 
-	fn render<S: Surface>(&self, target: &mut S, screen: &gl::texture::Texture2d) {
+	fn render<S: Surface>(&self, target: &mut S, screen: &gl::texture::SrgbTexture2d) {
 		let gl     = self.gl.as_ref().unwrap();
 		let config = self.config.as_ref().unwrap();
 		let man    = self.man.as_ref().unwrap();

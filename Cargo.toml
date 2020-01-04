@@ -11,5 +11,5 @@ repository  = "https://github.com/meh/screenruster-saver-laughing_man"
 keywords    = ["saver", "screenruster", "x11"]
 
 [dependencies]
-nalgebra = "0.18"
+nalgebra = "0.19"
 screen = { package = "screenruster-saver", version = "0.2", path = "../saver" }
